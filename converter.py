@@ -1,64 +1,61 @@
-import os, re
+import os
 import json
-import pdb
-import collections
-from bs4 import BeautifulSoup
+from collections import OrderedDict
 from django.utils.text import slugify
+import streamlit as st
 
-sourceLink = 'http://www.gurbanifiles.org'
-source = 'Gurbani Files'
+# App title
+st.title("📜 Gurbani Text Converter")
 
-works = [{
-	'originalTitle': "ਗੁਰੂ ਗ੍ਰੰਥ ਸਾਹਿਬ ਜੀ",
-	'englishTitle': "Guru Granth Sahib",
-	'author': "Not available",
-	'dirname': "guru_granth_sahib",
-	'source': source,
-	'sourceLink': sourceLink,
-	'language': 'punjabi',
-	'text': {},
-}]
+# Metadata
+SOURCE_NAME = "Gurbani Files"
+SOURCE_LINK = "http://www.gurbanifiles.org"
 
-def jaggedListToDict(text):
-	node = { str(i): t for i, t in enumerate(text) }
-	node = collections.OrderedDict(sorted(node.items(), key=lambda k: int(k[0])))
-	for child in node:
-		if isinstance(node[child], list):
-			if len(node[child]) == 1:
-				node[child] = node[child][0]
-			else:
-				node[child] = jaggedListToDict(node[child])
-	return node
+# Define work metadata
+work = {
+    "originalTitle": "ਗੁਰੂ ਗ੍ਰੰਥ ਸਾਹਿਬ ਜੀ",
+    "englishTitle": "Guru Granth Sahib",
+    "author": "Not available",
+    "dirname": "guru_granth_sahib",
+    "source": SOURCE_NAME,
+    "sourceLink": SOURCE_LINK,
+    "language": "punjabi",
+    "text": {},
+}
 
-def main():
-	if not os.path.exists('cltk_json'):
-		os.makedirs('cltk_json')
-	# Build json docs from txt files
-	for root, dirs, files in os.walk("."):
-		path = root.split('/')
-		print((len(path) - 1) * '---', os.path.basename(root))
-		for fname in files:
-			if fname == 'complete_text.txt':
-				print((len(path)) * '---', fname)
+def convert_jagged_list_to_dict(lines):
+    node = {str(i): line for i, line in enumerate(lines)}
+    node = OrderedDict(sorted(node.items(), key=lambda item: int(item[0])))
+    for key, value in node.items():
+        if isinstance(value, list):
+            node[key] = value[0] if len(value) == 1 else convert_jagged_list_to_dict(value)
+    return node
 
-				for work in works:
-					if work['dirname'] in path:
-						with open(os.path.join(root, fname)) as f:
-							lines = f.read().splitlines()
+def process_text_file(uploaded_file):
+    lines = [line.strip() for line in uploaded_file.read().decode("utf-8").splitlines() if line.strip()]
+    return convert_jagged_list_to_dict(lines)
 
-						text = []
-						for line in lines:
-							if len(line.strip()):
-								text.append(line)
+# File uploader
+uploaded_file = st.file_uploader("Upload your complete_text.txt file", type="txt")
 
-						work['text'] = jaggedListToDict(text)
+if uploaded_file:
+    st.success("File uploaded successfully!")
+    work["text"] = process_text_file(uploaded_file)
 
+    # Display preview
+    st.subheader("📖 Text Preview")
+    st.json(work["text"])
 
-	for work in works:
-		fname = slugify(work['source']) + '__' + slugify(work['englishTitle'][0:100]) + '__' + slugify(work['language']) + '.json'
-		fname = fname.replace(" ", "")
-		with open('cltk_json/' + fname, 'w') as f:
-			json.dump(work, f)
+    # Generate filename
+    filename = f"{slugify(work['source'])}__{slugify(work['englishTitle'][:100])}__{slugify(work['language'])}.json"
+    filename = filename.replace(" ", "")
 
-if __name__ == '__main__':
-	main()
+    # Download button
+    st.download_button(
+        label="📥 Download JSON",
+        data=json.dumps(work, ensure_ascii=False, indent=2),
+        file_name=filename,
+        mime="application/json"
+    )
+else:
+    st.info("Please upload a file to begin.")
