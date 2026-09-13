@@ -1,3 +1,5 @@
+<img width="1916" height="986" alt="image" src="https://github.com/user-attachments/assets/45dddcbe-3f77-4d3b-bc0f-bba6f8a1d50d" />
+
 # JASS Gurbani Explorer
 
 **JASS Gurbani Explorer v0.8 — Stable Base**
